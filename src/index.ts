@@ -1,10 +1,11 @@
+// deno-lint-ignore-file no-explicit-any
 type InferField<F> =
   // a primitive ⇒ number
   F extends PrimitiveDescriptor
     ? number
     : // a vector of primitives ⇒ the TypedArray instance
     F extends PrimitiveDescriptor[]
-    ? InstanceType<F[0]["arrayType"]>
+    ? number[]
     : // any StructDescriptor<U> ⇒ U
     F extends StructDescriptor<infer U>
     ? U
@@ -65,7 +66,12 @@ type FieldDescriptor =
  */
 export interface StructDescriptor<T> {
   size: number;
-  create(buffer?: ArrayBuffer, baseOffset?: number): T;
+  create(
+    buffer?: ArrayBuffer,
+    baseOffset?: number
+  ): T & {
+    buffer: ArrayBuffer;
+  };
 }
 
 /**
@@ -190,17 +196,26 @@ export const c = {
     if (!Number.isInteger(length) || length <= 0) {
       throw new Error("c.array: length must be a positive integer");
     }
+
     return {
       size: structDesc.size * length,
       create(
         buffer: ArrayBuffer = new ArrayBuffer(structDesc.size * length),
         baseOffset = 0
-      ) {
+      ): T[] & {
+        buffer: ArrayBuffer;
+      } {
         const arr: T[] = [];
         for (let i = 0; i < length; i++) {
           arr.push(structDesc.create(buffer, baseOffset + i * structDesc.size));
         }
-        return arr;
+        Object.defineProperty(arr, "buffer", {
+          get: () => buffer,
+          enumerable: false,
+        });
+        return arr as T[] & {
+          buffer: ArrayBuffer;
+        };
       },
     };
   },
@@ -233,6 +248,20 @@ export const c = {
           offset: fieldOffset,
         };
         offset += elem.size * type.length;
+      } else if (
+        (type as StructDescriptor<any>).size &&
+        typeof (type as StructDescriptor<any>).create === "function" &&
+        Array.isArray((type as StructDescriptor<any>).create())
+      ) {
+        // array of nested structs
+        entry = {
+          kind: "array",
+          name,
+          elemDesc: type as StructDescriptor<any>,
+          length: (type as any).length,
+          offset: fieldOffset,
+        };
+        offset += (type as StructDescriptor<any>).size * (type as any).length;
       } else if ((type as PrimitiveDescriptor).arrayType) {
         const elem = type as PrimitiveDescriptor;
         entry = {
@@ -254,20 +283,6 @@ export const c = {
           offset: fieldOffset,
         };
         offset += (type as StructDescriptor<any>).size;
-      } else if (
-        (type as StructDescriptor<any>).size &&
-        typeof (type as StructDescriptor<any>).create === "function" &&
-        Array.isArray((type as StructDescriptor<any>).create())
-      ) {
-        // array of nested structs
-        entry = {
-          kind: "array",
-          name,
-          elemDesc: type as StructDescriptor<any>,
-          length: (type as any).length,
-          offset: fieldOffset,
-        };
-        offset += (type as StructDescriptor<any>).size * (type as any).length;
       } else {
         throw new Error(`Unknown field type for "${name}"`);
       }
