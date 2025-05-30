@@ -1,16 +1,28 @@
 {
   "name": "c-structs",
+  "version": "0.1.1",
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "license": "MIT",
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dylanblokhuis/c-structs.git"
+  },
+  "keywords": [
+    "structs",
+    "typedarray",
+    "arraybuffer",
+    "gpu"
+  ],
   "scripts": {
-    "build": "tsup src/index.ts --dts"
+    "build": "tsup src/index.ts --dts --format esm,cjs"
   },
   "devDependencies": {
     "tsup": "^8.5.0",
     "typescript": "^5.8.3"
-  },
-  "version": "0.1.1"
+  }
 }
