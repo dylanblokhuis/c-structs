@@ -77,7 +77,7 @@ export interface StructDescriptor<T> {
 /**
  * Primitive descriptors map
  */
-export const p: Record<string, PrimitiveDescriptor> = {
+const p: Record<string, PrimitiveDescriptor> = {
   float32: {
     size: 4,
     arrayType: Float32Array,
@@ -132,7 +132,6 @@ export const p: Record<string, PrimitiveDescriptor> = {
  * Constructor helpers for vectors, arrays, and structs.
  */
 export const c = {
-  // Vector of floats
   float(): PrimitiveDescriptor {
     return p.float32;
   },
@@ -157,6 +156,48 @@ export const c = {
   },
   uint4(): PrimitiveDescriptor[] {
     return [p.uint32, p.uint32, p.uint32, p.uint32];
+  },
+
+  int(): PrimitiveDescriptor {
+    return p.int32;
+  },
+  int2(): PrimitiveDescriptor[] {
+    return [p.int32, p.int32];
+  },
+  int3(): PrimitiveDescriptor[] {
+    return [p.int32, p.int32, p.int32];
+  },
+  int4(): PrimitiveDescriptor[] {
+    return [p.int32, p.int32, p.int32, p.int32];
+  },
+
+
+  uint16(): PrimitiveDescriptor {
+    return p.uint16;
+  },
+
+  uint64(): PrimitiveDescriptor {
+    return p.uint64;
+  },
+
+  int16(): PrimitiveDescriptor {
+    return p.int16;
+  },
+
+  int64(): PrimitiveDescriptor {
+    return p.int64;
+  },
+
+  float64(): PrimitiveDescriptor {
+    return p.float64;
+  },
+
+  matrix3(): PrimitiveDescriptor[] {
+    return [
+      p.float32, p.float32, p.float32,
+      p.float32, p.float32, p.float32,
+      p.float32, p.float32, p.float32,
+    ];
   },
 
   matrix4(): PrimitiveDescriptor[] {
