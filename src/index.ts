@@ -2,14 +2,14 @@
 type InferField<F> =
   // a primitive ⇒ number
   F extends PrimitiveDescriptor
-    ? number
-    : // a vector of primitives ⇒ the TypedArray instance
-    F extends PrimitiveDescriptor[]
-    ? number[]
-    : // any StructDescriptor<U> ⇒ U
-    F extends StructDescriptor<infer U>
-    ? U
-    : never;
+  ? number
+  : // a vector of primitives ⇒ the TypedArray instance
+  F extends PrimitiveDescriptor[]
+  ? number[] | Float32Array | Int16Array | Int32Array | BigInt64Array | Uint16Array | Uint32Array | BigUint64Array | Float64Array
+  : // any StructDescriptor<U> ⇒ U
+  F extends StructDescriptor<infer U>
+  ? U
+  : never;
 
 /** Given a whole schema object, produce a “shaped” type */
 type InferSchema<S extends Record<string, any>> = {
@@ -22,14 +22,14 @@ type InferSchema<S extends Record<string, any>> = {
 interface PrimitiveDescriptor {
   size: number;
   arrayType:
-    | Float32ArrayConstructor
-    | Int16ArrayConstructor
-    | Int32ArrayConstructor
-    | BigInt64ArrayConstructor
-    | Uint16ArrayConstructor
-    | Uint32ArrayConstructor
-    | BigUint64ArrayConstructor
-    | Float64ArrayConstructor;
+  | Float32ArrayConstructor
+  | Int16ArrayConstructor
+  | Int32ArrayConstructor
+  | BigInt64ArrayConstructor
+  | Uint16ArrayConstructor
+  | Uint32ArrayConstructor
+  | BigUint64ArrayConstructor
+  | Float64ArrayConstructor;
 
   getter: keyof DataView;
   setter: keyof DataView;
@@ -41,25 +41,25 @@ interface PrimitiveDescriptor {
 type FieldDescriptor =
   | { kind: "scalar"; name: string; desc: PrimitiveDescriptor; offset: number }
   | {
-      kind: "vector";
-      name: string;
-      elem: PrimitiveDescriptor;
-      length: number;
-      offset: number;
-    }
+    kind: "vector";
+    name: string;
+    elem: PrimitiveDescriptor;
+    length: number;
+    offset: number;
+  }
   | {
-      kind: "struct";
-      name: string;
-      desc: StructDescriptor<any>;
-      offset: number;
-    }
+    kind: "struct";
+    name: string;
+    desc: StructDescriptor<any>;
+    offset: number;
+  }
   | {
-      kind: "array";
-      name: string;
-      elemDesc: StructDescriptor<any>;
-      length: number;
-      offset: number;
-    };
+    kind: "array";
+    name: string;
+    elemDesc: StructDescriptor<any>;
+    length: number;
+    offset: number;
+  };
 
 /**
  * Descriptor for a generated struct: knows its byte-size and has a create method.
