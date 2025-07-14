@@ -6,11 +6,14 @@ Deno.test("simple", () => {
   });
 
   const item = Item.create();
-  item.color = [1, 0, 0];
+  item.color = [1, 4.0, 0];
 
   console.log(item.buffer);
   if (item.buffer.byteLength !== 12) {
     throw new Error("Buffer size is not as expected");
+  }
+  if (item.color[0] !== 1 || item.color[1] !== 4.0 || item.color[2] !== 0) {
+    throw new Error("Color values are not as expected");
   }
 });
 
@@ -37,6 +40,8 @@ Deno.test("nested struct", () => {
     g: c.float(),
     b: c.float(),
   });
+
+  // const buffer = Color.create({ ... });
 
   const Item = c.struct({
     color: Color,

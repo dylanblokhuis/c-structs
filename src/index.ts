@@ -2,23 +2,23 @@
 type InferField<F> =
   // a primitive ⇒ number
   F extends PrimitiveDescriptor
-    ? number
-    : // a vector of primitives ⇒ the TypedArray instance
-    F extends PrimitiveDescriptor[]
-    ?
-        | number[]
-        | Float32Array
-        | Int16Array
-        | Int32Array
-        | BigInt64Array
-        | Uint16Array
-        | Uint32Array
-        | BigUint64Array
-        | Float64Array
-    : // any StructDescriptor<U> ⇒ U
-    F extends StructDescriptor<infer U>
-    ? U
-    : never;
+  ? number
+  : // a vector of primitives ⇒ the TypedArray instance
+  F extends PrimitiveDescriptor[]
+  ?
+  | number[]
+  | Float32Array
+  | Int16Array
+  | Int32Array
+  | BigInt64Array
+  | Uint16Array
+  | Uint32Array
+  | BigUint64Array
+  | Float64Array
+  : // any StructDescriptor<U> ⇒ U
+  F extends StructDescriptor<infer U>
+  ? U
+  : never;
 
 /** Given a whole schema object, produce a “shaped” type */
 type InferSchema<S extends Record<string, any>> = {
@@ -31,14 +31,14 @@ type InferSchema<S extends Record<string, any>> = {
 interface PrimitiveDescriptor {
   size: number;
   arrayType:
-    | Float32ArrayConstructor
-    | Int16ArrayConstructor
-    | Int32ArrayConstructor
-    | BigInt64ArrayConstructor
-    | Uint16ArrayConstructor
-    | Uint32ArrayConstructor
-    | BigUint64ArrayConstructor
-    | Float64ArrayConstructor;
+  | Float32ArrayConstructor
+  | Int16ArrayConstructor
+  | Int32ArrayConstructor
+  | BigInt64ArrayConstructor
+  | Uint16ArrayConstructor
+  | Uint32ArrayConstructor
+  | BigUint64ArrayConstructor
+  | Float64ArrayConstructor;
 
   getter: keyof DataView;
   setter: keyof DataView;
@@ -50,25 +50,25 @@ interface PrimitiveDescriptor {
 type FieldDescriptor =
   | { kind: "scalar"; name: string; desc: PrimitiveDescriptor; offset: number }
   | {
-      kind: "vector";
-      name: string;
-      elem: PrimitiveDescriptor;
-      length: number;
-      offset: number;
-    }
+    kind: "vector";
+    name: string;
+    elem: PrimitiveDescriptor;
+    length: number;
+    offset: number;
+  }
   | {
-      kind: "struct";
-      name: string;
-      desc: StructDescriptor<any>;
-      offset: number;
-    }
+    kind: "struct";
+    name: string;
+    desc: StructDescriptor<any>;
+    offset: number;
+  }
   | {
-      kind: "array";
-      name: string;
-      elemDesc: StructDescriptor<any>;
-      length: number;
-      offset: number;
-    };
+    kind: "array";
+    name: string;
+    elemDesc: StructDescriptor<any>;
+    length: number;
+    offset: number;
+  };
 
 /**
  * Descriptor for a generated struct: knows its byte-size and has a create method.
@@ -278,15 +278,10 @@ export const c = {
   /**
    * Create a struct descriptor from a schema map.
    */
-  struct<
-    S extends Record<
-      string,
-      PrimitiveDescriptor | PrimitiveDescriptor[] | StructDescriptor<any>
-    >
-  >(schema: S): StructDescriptor<InferSchema<S>> {
+  struct<S extends Record<string, any>>(schema: S): StructDescriptor<InferSchema<S>> {
+    // 1) Compute fields & totalSize exactly as you do today...
     let offset = 0;
     const fields: FieldDescriptor[] = [];
-
     for (const [name, type] of Object.entries<
       PrimitiveDescriptor | PrimitiveDescriptor[] | StructDescriptor<any>
     >(schema)) {
@@ -344,52 +339,96 @@ export const c = {
 
       fields.push(entry);
     }
-
     const totalSize = offset;
 
-    return {
-      size: totalSize,
-      create(buffer: ArrayBuffer = new ArrayBuffer(totalSize), baseOffset = 0) {
-        const view = new DataView(buffer);
-        const inst = {} as any;
+    // 2) Build a constructor whose prototype we’ll decorate
+    class Ctor {
+      public buffer: ArrayBuffer;
+      public baseOffset: number;
+      private __view: DataView;
+      constructor(
+        buffer: ArrayBuffer = new ArrayBuffer(totalSize),
+        baseOffset: number = 0,
+      ) {
+        this.buffer = buffer;
+        this.baseOffset = baseOffset;
+        this.__view = new DataView(buffer);
 
+        // For nested structs & arrays, set up instances once per object:
         for (const f of fields) {
-          const abs = baseOffset + f.offset;
-          switch (f.kind) {
-            case "scalar":
-              Object.defineProperty(inst, f.name, {
-                get: () => (view[f.desc.getter] as any)(abs, true),
-                set: (v: any) => (view[f.desc.setter] as any)(abs, v, true),
-                enumerable: true,
-              });
-              break;
-            case "vector": {
-              const Typed = f.elem.arrayType;
-              const ta = new Typed(buffer, abs, f.length);
-              Object.defineProperty(inst, f.name, {
-                get: () => ta,
-                set: (arr: any[]) => {
-                  for (let i = 0; i < f.length; i++) ta[i] = arr[i];
-                },
-                enumerable: true,
-              });
-              break;
-            }
-            case "struct":
-              inst[f.name] = f.desc.create(buffer, abs);
-              break;
-            case "array":
-              inst[f.name] = c.array(f.elemDesc, f.length).create(buffer, abs);
-              break;
+          if (f.kind === "struct") {
+            (this as any)[f.name] = f.desc.create(buffer, baseOffset + f.offset);
+          } else if (f.kind === "array") {
+            (this as any)[f.name] = c.array(f.elemDesc, f.length).create(buffer, baseOffset + f.offset);
           }
         }
 
-        Object.defineProperty(inst, "buffer", {
-          get: () => buffer,
-          enumerable: false,
-        });
+        // // 3) Apply any initial data
+        // for (const k of Object.keys(initial)) {
+        //   (this as any)[k] = (initial as any)[k];
+        // }
+      }
+    }
 
-        return inst;
+    // 4) Define getters/setters *once* on the prototype
+    for (const f of fields) {
+      const abs = f.offset;
+      switch (f.kind) {
+        case "scalar":
+          Object.defineProperty(Ctor.prototype, f.name, {
+            enumerable: true,
+            get(this: any) {
+              return (this.__view[f.desc.getter] as any)(
+                this.baseOffset + abs,
+                true
+              );
+            },
+            set(this: any, v: any) {
+              return (this.__view[f.desc.setter] as any)(
+                this.baseOffset + abs,
+                v,
+                true
+              );
+            },
+          });
+          break;
+
+        case "vector": {
+          // we can allocate one TypedArray per-instance in ctor,
+          // but reuse the same getter/setter logic here:
+          const Typed = f.elem.arrayType;
+          Object.defineProperty(Ctor.prototype, f.name, {
+            enumerable: true,
+            get(this: any) {
+              // lazily create and cache it on first access:
+              if (!this.hasOwnProperty("__" + f.name)) {
+                Object.defineProperty(this, "__" + f.name, {
+                  value: new Typed(
+                    this.buffer,
+                    this.baseOffset + abs,
+                    f.length
+                  ),
+                  writable: false,
+                  enumerable: false,
+                });
+              }
+              return this["__" + f.name];
+            },
+            set(this: any, arr: any[]) {
+              const ta: any = (this as any)[f.name]; // triggers getter
+              for (let i = 0; i < f.length; i++) ta[i] = arr[i];
+            },
+          });
+          break;
+        }
+      }
+    }
+
+    // 5) Finally return the descriptor
+    return {
+      size: totalSize,
+      create(buffer?: ArrayBuffer, baseOffset?: number) {
+        return new (Ctor as any)(buffer, baseOffset);
       },
     };
   },
